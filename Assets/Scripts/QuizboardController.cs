@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 class Question {
@@ -101,6 +102,11 @@ public class QuizboardController : MonoBehaviour {
     private List<Player> players;
     public Text[] playerScores;
     private KeyCode[] buzzers = { KeyCode.Q, KeyCode.C, KeyCode.M, KeyCode.P };
+    public GameObject victoryScreen;
+    public GameObject winnerPlayer;
+    public GameObject winnerScore;
+    public Button playAgain;
+    private bool gameComplete;
 
     int questionCount = 30;
 
@@ -120,12 +126,15 @@ public class QuizboardController : MonoBehaviour {
         }
 
         shouldCheckBuzzer = false;
+        gameComplete = false;
 
         questionPanel.SetActive(false);
         answerField.SetActive(false);
         submitAnswer.SetActive(false);
         questionWordText.SetActive(false);
         questionMark.SetActive(false);
+
+        victoryScreen.SetActive(false);
 
         repository = new Repository();
         List<Topic> topics = repository.GetTopics();
@@ -146,6 +155,7 @@ public class QuizboardController : MonoBehaviour {
         button.interactable = false;
         questionPanel.GetComponentInChildren<Text>().text = question.questionText;
         shouldCheckBuzzer = true;
+        submitAnswer.GetComponent<Button>().onClick.RemoveAllListeners();
         submitAnswer.GetComponent<Button>().onClick.AddListener(delegate { CheckAnswer(question); });
         questionWordText.GetComponent<Text>().text = question.questionWord;
         questionPanel.SetActive(true);
@@ -160,7 +170,7 @@ public class QuizboardController : MonoBehaviour {
 
     private void CheckAnswer(Question question) {
         string answer = answerField.GetComponent<InputField>().text;
-        answerField.GetComponent<InputField>().text = "";
+        // answerField.GetComponent<InputField>().text = "";
         players[currentPlayer].score += question.GetScore(answer);
         questionPanel.SetActive(false);
         answerField.SetActive(false);
@@ -168,6 +178,9 @@ public class QuizboardController : MonoBehaviour {
         questionWordText.SetActive(false);
         questionMark.SetActive(false);
         questionCount--;
+        if(questionCount == 0) {
+            gameComplete = true;
+        }
     }
 
     void Update() {
@@ -183,12 +196,17 @@ public class QuizboardController : MonoBehaviour {
                 BuzzerPressed();
         }
 
-        if(questionCount == 0) {
-
+        if(gameComplete && !victoryScreen.activeSelf) {
+            int max = players[0].score;
+            int winner = 1;
+            for (int i = 1; i < 4; i++) {
+                if (players[i].score > max) {
+                    winner = i + 1;
+                }
+            }
+            ShowVictoryScreen(winner);
         }
-    }
 
-    void LateUpdate() {
         for (int i = 0; i < 4; i++) {
             if(i == currentPlayer) {
                 playerScores[i].color = Color.green;
@@ -198,4 +216,12 @@ public class QuizboardController : MonoBehaviour {
             playerScores[i].text = "Score: " + (players[i].score < 0 ? "-$" : "$") + Math.Abs(players[i].score);
         }
     }
+
+    void ShowVictoryScreen(int winner) {
+        winnerPlayer.GetComponent<Text>().text = "Player" + winner;
+        winnerScore.GetComponent<Text>().text = "Score: " + (players[winner - 1].score < 0 ? "-$" : "$") + Math.Abs(players[winner - 1].score);
+        victoryScreen.SetActive(true);
+        playAgain.onClick.AddListener(delegate { SceneManager.LoadScene("Game"); });
+    }
+
 }
