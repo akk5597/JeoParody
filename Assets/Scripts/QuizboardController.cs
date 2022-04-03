@@ -460,6 +460,7 @@ public class QuizboardController : MonoBehaviour {
             int winner = 1;
             for (int i = 1; i < 4; i++) {
                 if (players[i].score > max) {
+                    max = players[i].score;
                     winner = i + 1;
                 }
             }
