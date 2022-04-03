@@ -1,14 +1,15 @@
+using Newtonsoft.Json;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using Newtonsoft.Json;
 
 class Question {
     public string questionText;
-    private string answer;
+    public string answer;
     public string questionWord;
     public int difficulty;
     public const int VALUE = 200;
@@ -63,7 +64,26 @@ class Repository {
     }
 
     public List<Topic> GetTopics() {
+        Debug.Log("Topics found: " + topics.Count);
+        for (int i = 0; i < topics.Count; i++) {
+            Debug.Log("Questions in Topic" + i + " found: " + topics[i].questions.Count);
+            for (int j = 0; j < topics[i].questions.Count; j++) {
+                Debug.Log("Question: " + topics[i].questions[j].questionText + ", Value: " + topics[i].questions[j].GetValue());
+            }
+        }
         return topics;
+    }
+}
+
+class Player {
+    public int score;
+    public string name;
+    public KeyCode buzzer;
+
+    public Player(string _name, KeyCode _buzzer) {
+        score = 0;
+        name = _name;
+        buzzer = _buzzer;
     }
 }
 
@@ -71,19 +91,35 @@ public class QuizboardController : MonoBehaviour {
 
     public GameObject[] panels;
     private Repository repository;
-    private GameObject questionPanel;
-    private GameObject answerField;
-    private GameObject submitAnswer;
-    private GameObject questionWordText;
-    private GameObject questionMark;
+    public GameObject questionPanel;
+    public GameObject answerField;
+    public GameObject submitAnswer;
+    public GameObject questionWordText;
+    public GameObject questionMark;
+    private bool shouldCheckBuzzer;
+    private int currentPlayer = 0;
+    private List<Player> players;
+    public Text[] playerScores;
+    private KeyCode[] buzzers = { KeyCode.Q, KeyCode.C, KeyCode.M, KeyCode.P };
 
+    int questionCount = 30;
 
     void Start() {
-        questionPanel = GameObject.Find("QuestionPanel");
-        answerField = GameObject.Find("AnswerField");
-        submitAnswer = GameObject.Find("SubmitAnswer");
-        questionWordText = GameObject.Find("QuestionWordText");
-        questionMark = GameObject.Find("QuestionMark");
+        // questionPanel = GameObject.Find("QuestionPanel");
+        // answerField = GameObject.Find("AnswerField");
+        // submitAnswer = GameObject.Find("SubmitAnswer");
+        // questionWordText = GameObject.Find("QuestionWordText");
+        // questionMark = GameObject.Find("QuestionMark");
+        // playerList = GameObject.Find("PlayerList");
+
+        players = new List<Player>();
+
+        for(int i = 0; i < 4; i++) {
+            Player player = new Player("Player" + (i + 1), buzzers[i]);
+            players.Add(player);
+        }
+
+        shouldCheckBuzzer = false;
 
         questionPanel.SetActive(false);
         answerField.SetActive(false);
@@ -98,15 +134,68 @@ public class QuizboardController : MonoBehaviour {
             panels[i].GetComponentInChildren<Text>().text = topics[i].name;
             Button[] buttons = panels[i].GetComponentsInChildren<Button>();
             for (int j = 0; j < topics[i].questions.Count; j++) {
-                buttons[i].GetComponentInChildren<Text>().text = "$" + topics[i].questions[j].GetValue();
-                buttons[i].onClick.AddListener(delegate { ShowQuestion(topics[i].questions[j], buttons[i]); });
+                Question question = topics[i].questions[j];
+                Button button = buttons[j];
+                button.GetComponentInChildren<Text>().text = "$" + question.GetValue();
+                button.onClick.AddListener(delegate { ShowQuestion(question, button); });
             }
         }
     }
 
     private void ShowQuestion(Question question, Button button) {
-        button.gameObject.SetActive(false);
+        button.interactable = false;
         questionPanel.GetComponentInChildren<Text>().text = question.questionText;
+        shouldCheckBuzzer = true;
+        submitAnswer.GetComponent<Button>().onClick.AddListener(delegate { CheckAnswer(question); });
+        questionWordText.GetComponent<Text>().text = question.questionWord;
         questionPanel.SetActive(true);
+    }
+
+    private void BuzzerPressed() {
+        answerField.SetActive(true);
+        submitAnswer.SetActive(true);
+        questionWordText.SetActive(true);
+        questionMark.SetActive(true);
+    }
+
+    private void CheckAnswer(Question question) {
+        string answer = answerField.GetComponent<InputField>().text;
+        answerField.GetComponent<InputField>().text = "";
+        players[currentPlayer].score += question.GetScore(answer);
+        questionPanel.SetActive(false);
+        answerField.SetActive(false);
+        submitAnswer.SetActive(false);
+        questionWordText.SetActive(false);
+        questionMark.SetActive(false);
+        questionCount--;
+    }
+
+    void Update() {
+        if (shouldCheckBuzzer) {
+            for (int i = 0; i < 4; i++) {
+                if (Input.GetKeyDown(players[i].buzzer) && shouldCheckBuzzer) {
+                    currentPlayer = i;
+                    shouldCheckBuzzer = false;
+                }
+            }
+
+            if(!shouldCheckBuzzer)
+                BuzzerPressed();
+        }
+
+        if(questionCount == 0) {
+
+        }
+    }
+
+    void LateUpdate() {
+        for (int i = 0; i < 4; i++) {
+            if(i == currentPlayer) {
+                playerScores[i].color = Color.green;
+            } else {
+                playerScores[i].color = Color.black;
+            }
+            playerScores[i].text = "Score: " + (players[i].score < 0 ? "-$" : "$") + Math.Abs(players[i].score);
+        }
     }
 }
